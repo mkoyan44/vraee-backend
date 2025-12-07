@@ -1,0 +1,63 @@
+ARG TARGET_ARCH=amd64
+FROM --platform=linux/${TARGET_ARCH} ubuntu:24.04
+
+SHELL ["/bin/bash", "-c"]
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+
+WORKDIR /tmp
+
+# Locale setup
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
+RUN set -eux \
+    && apt-get update \
+    && apt-get install --no-install-recommends --yes locales \
+    && dpkg-reconfigure -f noninteractive locales \
+    && locale-gen en_US en_US.UTF-8 \
+    && /usr/sbin/update-locale LANG=C.UTF-8 \
+    && echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen \
+    && locale-gen
+
+RUN set -eux \
+    && apt-get update -qq \
+    && apt-get install -qq -y ca-certificates curl git unzip less \
+    wget apt-transport-https zip tzdata gnupg lsb-release dnsutils \
+    net-tools netcat-traditional sudo jq iputils-ping
+
+ENV NODEJS_VERSION=20.12.2
+ENV NPM_VERSION=10.5.0
+ENV NVM_DIR /usr/local/nvm
+ENV PATH ${NVM_DIR}:$PATH
+ENV NODE_PATH ${NVM_DIR}/versions/node/v${NODEJS_VERSION}/lib/node_modules
+ENV PATH ${NVM_DIR}/versions/node/v${NODEJS_VERSION}/bin:$PATH
+
+RUN set -eux \
+    && mkdir ${NVM_DIR} \
+    && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+
+RUN set -eux \
+    && cd ${NVM_DIR} \
+    && source ${NVM_DIR}/nvm.sh \
+    && nvm install ${NODEJS_VERSION} \
+    && nvm alias default ${NODEJS_VERSION} \
+    && nvm use default \
+    && npm install -g ts-node typescript typeorm
+
+COPY docker/assets/create-linux-user.sh /tmp/create-linux-user.sh
+RUN bash /tmp/create-linux-user.sh host_uid=501 host_gid=20 host_username=devopsadmin
+
+RUN set -ex \
+    && chown -R devopsadmin:dialout /home/devopsadmin/
+
+WORKDIR /codebase
+COPY backend/package*.json ./
+RUN set -eux \
+  && sudo chown -R devopsadmin:dialout /codebase  \
+  && npm install --legacy-peer-deps
+
+COPY docker/entrypoints/docker-entrypoint-backend.sh /tmp/docker-entrypoint.sh
+RUN sudo chmod +x /tmp/docker-entrypoint.sh
+EXPOSE 4000
+USER devopsadmin
+ENTRYPOINT ["/tmp/docker-entrypoint.sh"]
