@@ -6,11 +6,15 @@ import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
+import { GoogleStrategy } from './google.strategy';
+import { LinkedInStrategy } from './linkedin.strategy';
+import { GoogleGuard } from './google.guard';
+import { LinkedInGuard } from './linkedin.guard';
 
 @Module({
   imports: [
     UserModule,
-    PassportModule,
+    PassportModule.register({ session: false }),
     ConfigModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'supersecret',
@@ -18,7 +22,14 @@ import { JwtStrategy } from './jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    GoogleStrategy,
+    LinkedInStrategy,
+    GoogleGuard,
+    LinkedInGuard,
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}
