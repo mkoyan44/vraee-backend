@@ -1,0 +1,83 @@
+name: Build-workflow
+
+run-name: "PR_merge_check, Author: ${{ github.actor }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        type: choice
+        description: "Type of release"
+        options:
+          - "patch"
+          - "minor"
+          - "major"
+        default: "patch"
+  workflow_call:
+    secrets:
+      GH_TOKEN:
+        description: "github project token"
+        required: true
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'README.md'
+      - '.github/**'
+      - 'scripts/**'
+      - '*.txt'
+      - 'j2mization/'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    name: "PR Build (Validation)"
+    runs-on: [ "vraee-backend-runner" ]
+    env:
+      GH_ORG: mkoyan44
+      THIS_PROJECT_NAME: vraee-backend
+      DE_PROJECT_NAME: 4lock-de
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - name: Checkout Main Project
+        uses: actions/checkout@v4
+        with:
+          repository: "${{ env.GH_ORG }}/${{ env.THIS_PROJECT_NAME }}"
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+          clean: false
+
+      - name: Checkout DE Project
+        uses: actions/checkout@v4
+        with:
+          repository: "${{ env.GH_ORG }}/${{ env.DE_PROJECT_NAME }}"
+          ref: "main"
+          token: ${{ secrets.GH_TOKEN }}
+          path: .git/${{ env.DE_PROJECT_NAME }}/
+          fetch-depth: 0
+          clean: false
+
+      - name: Setup Environment Files
+        run: |
+          echo "GH_TOKEN=${GH_TOKEN}" > .env
+          echo "GH_OWNER=${GH_ORG}" >> .env
+          echo "DE_PROJECT_NAME=${DE_PROJECT_NAME}" >> .env
+          echo "TARGET_ARCH=amd64" >> .env
+          echo "GH_REPO=${THIS_PROJECT_NAME}" >> .env
+
+      - name: Login ghcr
+        run: make gh TARGET_ARCH=amd64
+
+      - name: Build Container
+        run: |
+          make sudo-web-build TARGET_ARCH=amd64
