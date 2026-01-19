@@ -1,0 +1,189 @@
+name: Release-Pipeline
+
+run-name: "Backend Release Pipeline, Author: ${{ github.actor }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        type: choice
+        description: "Type of release"
+        options:
+          - "patch"
+          - "minor"
+          - "major"
+        required: false
+        default: "patch"
+  workflow_call:
+    secrets:
+      GH_TOKEN:
+        description: "github project token"
+        required: true
+  pull_request:
+    types:
+      - closed
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'README.md'
+      - '.github/**'
+      - 'scripts/**'
+      - '*.txt'
+      - 'j2mization/'
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    outputs:
+      tag: ${{ steps.new_tag.outputs.tag }}
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ["vraee-backend-runner"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: '0'
+
+      - name: Configure git to use token
+        run: git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/mkoyan44/vraee-backend.git
+
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Determine new tag
+        id: new_tag
+        run: |
+          # Get the highest semver tag
+          latest_tag=$(git tag | sort -V | tail -n 1)
+          if [ -z "$latest_tag" ]; then
+            new_tag="1.0.0"
+          else
+            IFS='.' read -r -a parts <<< "$latest_tag"
+            major=${parts[0]}
+            minor=${parts[1]}
+            patch=${parts[2]}
+            release_type="${{ github.event.inputs.release_type || 'patch' }}"
+            case "$release_type" in
+              major)
+                major=$((major + 1))
+                minor=0
+                patch=0
+                ;;
+              minor)
+                minor=$((minor + 1))
+                patch=0
+                ;;
+              patch|*)
+                patch=$((patch + 1))
+                ;;
+            esac
+            new_tag="$major.$minor.$patch"
+          fi
+          echo "New tag: $new_tag"
+          echo "tag=$new_tag" >> $GITHUB_OUTPUT
+
+      - name: Create new tag
+        env:
+          GH_PROJECT_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          git tag ${{ steps.new_tag.outputs.tag }}
+          git push origin ${{ steps.new_tag.outputs.tag }}
+
+  building:
+    name: "Building Backend"
+    timeout-minutes: 15
+    runs-on: ['vraee-backend-runner']
+    needs: tag
+    outputs:
+      version: ${{ env.VERSION }}
+    env:
+      THIS_PROJECT_NAME: vraee-backend
+      DE_PROJECT_NAME: 4lock-de
+      GH_ORG: mkoyan44
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      VERSION: ${{ needs.tag.outputs.tag }}
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout Main Project
+        uses: actions/checkout@v4
+        with:
+          repository: "${{ env.GH_ORG }}/${{ env.THIS_PROJECT_NAME }}"
+          ref: "${{ github.ref_name }}"
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+          clean: false
+
+      - name: Checkout DE Project
+        uses: actions/checkout@v4
+        with:
+          repository: "${{ env.GH_ORG }}/${{ env.DE_PROJECT_NAME }}"
+          ref: "main"
+          token: ${{ secrets.GH_TOKEN }}
+          path: .git/${{ env.DE_PROJECT_NAME }}/
+          fetch-depth: 0
+          clean: false
+
+      - name: Setup Environment Files
+        run: |
+          echo "=== Creating .env file ==="
+          echo "GH_TOKEN=${GH_TOKEN}" > .env
+          echo "GH_OWNER=${{ env.GH_ORG }}" >> .env
+          echo "DE_PROJECT_NAME=${{ env.DE_PROJECT_NAME }}" >> .env
+
+      - name: Login ghcr
+        run: make gh TARGET_ARCH=amd64 VERSION=${{ env.VERSION }}
+
+      - name: Build Backend Container
+        run: make nerdctl-backend-build TARGET_ARCH=amd64 VERSION=${{ env.VERSION }}
+
+      - name: Push Backend Container
+        run: make nerdctl-backend-push TARGET_ARCH=amd64 VERSION=${{ env.VERSION }}
+
+  applying:
+    name: "Applying Backend to K8s"
+    timeout-minutes: 15
+    runs-on: [ 'vraee-backend-runner' ]
+    needs: building
+    env:
+      THIS_PROJECT_NAME: vraee-backend
+      DE_PROJECT_NAME: 4lock-de
+      GH_ORG: mkoyan44
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      VERSION: ${{ needs.building.outputs.version }}
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout Main Project
+        uses: actions/checkout@v4
+        with:
+          repository: "${{ env.GH_ORG }}/${{ env.THIS_PROJECT_NAME }}"
+          ref: "${{ github.ref_name }}"
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+          clean: false
+
+      - name: Checkout DE Project
+        uses: actions/checkout@v4
+        with:
+          repository: "${{ env.GH_ORG }}/${{ env.DE_PROJECT_NAME }}"
+          ref: "main"
+          token: ${{ secrets.GH_TOKEN }}
+          path: .git/${{ env.DE_PROJECT_NAME }}/
+          fetch-depth: 0
+          clean: false
+
+      - name: Setup Environment Files
+        run: |
+          echo "=== Creating .env file ==="
+          echo "GH_TOKEN=${GH_TOKEN}" > .env
+          echo "GH_OWNER=${{ env.GH_ORG }}" >> .env
+          echo "DE_PROJECT_NAME=${{ env.DE_PROJECT_NAME }}" >> .env
+
+      - name: Update K8s Backend Spec
+        run: make j2m-apply-backend TARGET_ARCH=amd64 VERSION=${{ env.VERSION }}

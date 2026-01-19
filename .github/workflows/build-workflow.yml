@@ -1,6 +1,6 @@
-name: Build-workflow
+name: Backend-Build-Workflow
 
-run-name: "PR_merge_check, Author: ${{ github.actor }}"
+run-name: "Backend PR_merge_check, Author: ${{ github.actor }}"
 
 on:
   workflow_dispatch:
@@ -13,6 +13,13 @@ on:
           - "minor"
           - "major"
         default: "patch"
+      target_arch:
+        type: choice
+        description: "Target Architecture"
+        options:
+          - "amd64"
+          - "arm64"
+        default: "amd64"
   workflow_call:
     secrets:
       GH_TOKEN:
@@ -40,7 +47,7 @@ permissions:
 jobs:
   build:
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
-    name: "PR Build (Validation)"
+    name: "Backend PR Build (Validation)"
     runs-on: [ "vraee-backend-runner" ]
     env:
       GH_ORG: mkoyan44
@@ -78,6 +85,5 @@ jobs:
       - name: Login ghcr
         run: make gh TARGET_ARCH=amd64
 
-      - name: Build Container
-        run: |
-          make sudo-web-build TARGET_ARCH=amd64
+      - name: Build Backend Container
+        run: make nerdctl-backend-build TARGET_ARCH=amd64
