@@ -11,6 +11,31 @@ import { LinkedInStrategy } from './linkedin.strategy';
 import { GoogleGuard } from './google.guard';
 import { LinkedInGuard } from './linkedin.guard';
 
+// Helper function to create conditional providers
+function getOAuthProviders(): Array<
+  | typeof GoogleStrategy
+  | typeof GoogleGuard
+  | typeof LinkedInStrategy
+  | typeof LinkedInGuard
+> {
+  const providers: Array<
+    | typeof GoogleStrategy
+    | typeof GoogleGuard
+    | typeof LinkedInStrategy
+    | typeof LinkedInGuard
+  > = [];
+
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    providers.push(GoogleStrategy, GoogleGuard);
+  }
+
+  if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
+    providers.push(LinkedInStrategy, LinkedInGuard);
+  }
+
+  return providers;
+}
+
 @Module({
   imports: [
     UserModule,
@@ -22,14 +47,7 @@ import { LinkedInGuard } from './linkedin.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    GoogleStrategy,
-    LinkedInStrategy,
-    GoogleGuard,
-    LinkedInGuard,
-  ],
+  providers: [AuthService, JwtStrategy, ...getOAuthProviders()],
   exports: [AuthService],
 })
 export class AuthModule {}

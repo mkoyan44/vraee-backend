@@ -2,7 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User, UserRole } from './user.entity';
+import {
+  User,
+  UserRole,
+  UserStatus,
+  ClientType,
+  PrimaryService,
+  ProjectVolume,
+  CadSoftware,
+  RequiredOutput,
+} from './user.entity';
 import {
   UserProfileDto,
   ProfileStep1Dto,
@@ -22,12 +31,44 @@ export class UserService {
     email: string,
     password: string,
     role: UserRole,
+    status?: UserStatus,
+    fullName?: string,
+    companyName?: string,
+    website?: string,
+    clientType?: ClientType,
+    primaryService?: PrimaryService[],
+    projectVolume?: ProjectVolume,
+    cadSoftware?: CadSoftware,
+    requiredOutputs?: RequiredOutput[],
+    referralSource?: string,
   ): Promise<User> {
+    // Check if all required profile fields are provided to determine if profile is complete
+    // Technical details (CAD software, required outputs) are no longer required
+    const isProfileComplete = !!(
+      fullName &&
+      companyName &&
+      clientType &&
+      primaryService &&
+      primaryService.length > 0 &&
+      projectVolume
+    );
+
     // Temporarily store password as plain text for testing (auth service does plain text comparison)
     const newUser = this.userRepository.create({
       email,
       password: password, // Plain text for testing
       role,
+      status: status || UserStatus.PENDING,
+      fullName,
+      companyName,
+      website,
+      clientType,
+      primaryService,
+      projectVolume,
+      cadSoftware,
+      requiredOutputs,
+      referralSource,
+      isProfileComplete,
     });
     return this.userRepository.save(newUser);
   }
@@ -127,6 +168,7 @@ export class UserService {
       id: user.id,
       email: user.email,
       role: user.role,
+      status: user.status,
       isProfileComplete: user.isProfileComplete,
       fullName: user.fullName || undefined,
       companyName: user.companyName || undefined,
@@ -139,5 +181,29 @@ export class UserService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+  }
+
+  async findAllUsers(): Promise<User[]> {
+    return this.userRepository.find({
+      select: [
+        'id',
+        'email',
+        'fullName',
+        'companyName',
+        'website',
+        'status',
+        'role',
+        'createdAt',
+      ],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async updateUserStatus(
+    userId: number,
+    status: UserStatus,
+  ): Promise<User | null> {
+    await this.userRepository.update(userId, { status });
+    return this.userRepository.findOne({ where: { id: userId } });
   }
 }

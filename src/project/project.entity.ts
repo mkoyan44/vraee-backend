@@ -36,6 +36,7 @@ export enum ServiceDetail {
   MODELING_FROM_SCRATCH = 'Modeling from Scratch (Sketch/Reference)',
   MODELING_FROM_SAMPLE = 'Modeling from Sample (Photo/Physical Item)',
   CAD_CORRECTION_OPTIMIZATION = 'CAD Correction/Optimization',
+  DIGITAL_SCULPTING = 'Digital Sculpting (Organic Forms & Free-Form Designs)',
 
   // Rendering & Animation
   STILL_SHOTS_WHITE_BACKGROUND = 'Still Shots (White Background, 3 Views)',
@@ -50,13 +51,13 @@ export class Project {
   id: number;
 
   @Column({
-    type: 'enum',
+    type: process.env.DB_TYPE === 'sqlite' ? 'varchar' : 'enum',
     enum: ServiceType,
   })
   serviceType: ServiceType;
 
   @Column({
-    type: 'enum',
+    type: process.env.DB_TYPE === 'sqlite' ? 'varchar' : 'enum',
     enum: ServiceDetail,
     nullable: true,
   })
@@ -68,11 +69,15 @@ export class Project {
   @Column({ nullable: true })
   description: string;
 
-  @Column('text', { array: true, nullable: true })
+  @Column({
+    type: process.env.DB_TYPE === 'sqlite' ? 'simple-array' : 'text',
+    array: process.env.DB_TYPE !== 'sqlite',
+    nullable: true,
+  })
   files: string[];
 
   @Column({
-    type: 'enum',
+    type: process.env.DB_TYPE === 'sqlite' ? 'varchar' : 'enum',
     enum: ProjectStatus,
     default: ProjectStatus.QUOTE_PENDING,
   })
@@ -81,10 +86,18 @@ export class Project {
   @Column({ nullable: true })
   projectManager: string;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({
+    type: process.env.DB_TYPE === 'sqlite' ? 'datetime' : 'timestamp',
+    nullable: true,
+  })
   estimatedDelivery: Date;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  @Column({
+    type: process.env.DB_TYPE === 'sqlite' ? 'real' : 'decimal',
+    precision: process.env.DB_TYPE === 'sqlite' ? undefined : 5,
+    scale: process.env.DB_TYPE === 'sqlite' ? undefined : 2,
+    default: 0,
+  })
   progress: number;
 
   @Column()
@@ -94,13 +107,17 @@ export class Project {
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({
+    type: process.env.DB_TYPE === 'sqlite' ? 'datetime' : 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   createdAt: Date;
 
   @Column({
-    type: 'timestamp',
+    type: process.env.DB_TYPE === 'sqlite' ? 'datetime' : 'timestamp',
     default: () => 'CURRENT_TIMESTAMP',
-    onUpdate: 'CURRENT_TIMESTAMP',
+    onUpdate:
+      process.env.DB_TYPE === 'sqlite' ? undefined : 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
 }

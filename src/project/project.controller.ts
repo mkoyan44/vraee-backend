@@ -35,7 +35,10 @@ export class ProjectController {
 
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
-  async getProject(@Req() req: RequestWithUser, @Param('id') projectId: string) {
+  async getProject(
+    @Req() req: RequestWithUser,
+    @Param('id') projectId: string,
+  ) {
     const project = await this.projectService.findById(parseInt(projectId));
     if (!project || project.userId !== req.user.id) {
       return { error: 'Project not found' };
@@ -55,11 +58,16 @@ export class ProjectController {
       return { error: 'Project not found' };
     }
 
-    return this.projectService.updateProjectStatus(parseInt(projectId), updateProjectStatusDto);
+    return this.projectService.updateProjectStatus(
+      parseInt(projectId),
+      updateProjectStatusDto,
+    );
   }
 
   @Get('status-text/:status')
   async getStatusText(@Param('status') status: string) {
-    return { text: await this.projectService.getProjectStatusText(status as any) };
+    return {
+      text: await this.projectService.getProjectStatusText(status as any),
+    };
   }
 }

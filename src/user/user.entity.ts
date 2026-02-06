@@ -6,6 +6,12 @@ export enum UserRole {
   MODERATOR = 'moderator',
 }
 
+export enum UserStatus {
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  BLOCKED = 'BLOCKED',
+}
+
 export enum ClientType {
   JEWELRY_ECOMMERCE = 'JEWELRY_ECOMMERCE',
   MANUFACTURER_WHOLESALER = 'MANUFACTURER_WHOLESALER',
@@ -52,11 +58,25 @@ export class User {
   @Column()
   password: string;
 
-  @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
+  @Column({
+    type: process.env.DB_TYPE === 'sqlite' ? 'varchar' : 'enum',
+    enum: UserRole,
+    default: UserRole.USER,
+  })
   role: UserRole;
 
   @Column({ default: false })
   isBlocked: boolean;
+
+  @Column({
+    type: process.env.DB_TYPE === 'sqlite' ? 'varchar' : 'enum',
+    enum: UserStatus,
+    default: UserStatus.PENDING,
+  })
+  status: UserStatus;
+
+  @Column({ nullable: true })
+  website: string;
 
   // Profile creation fields
   @Column({ nullable: true })
@@ -66,7 +86,7 @@ export class User {
   companyName: string;
 
   @Column({
-    type: 'enum',
+    type: process.env.DB_TYPE === 'sqlite' ? 'varchar' : 'enum',
     enum: ClientType,
     nullable: true,
   })
@@ -79,14 +99,14 @@ export class User {
   primaryService: PrimaryService[];
 
   @Column({
-    type: 'enum',
+    type: process.env.DB_TYPE === 'sqlite' ? 'varchar' : 'enum',
     enum: ProjectVolume,
     nullable: true,
   })
   projectVolume: ProjectVolume;
 
   @Column({
-    type: 'enum',
+    type: process.env.DB_TYPE === 'sqlite' ? 'varchar' : 'enum',
     enum: CadSoftware,
     nullable: true,
   })
@@ -104,11 +124,14 @@ export class User {
   @Column({ default: false })
   isProfileComplete: boolean;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({
+    type: process.env.DB_TYPE === 'sqlite' ? 'datetime' : 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   createdAt: Date;
 
   @Column({
-    type: 'timestamp',
+    type: process.env.DB_TYPE === 'sqlite' ? 'datetime' : 'timestamp',
     default: () => 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;

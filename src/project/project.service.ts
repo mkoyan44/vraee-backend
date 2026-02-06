@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project, ProjectStatus } from './project.entity';
-import { CreateProjectDto, ProjectResponseDto, UpdateProjectStatusDto } from './project.dto';
+import {
+  CreateProjectDto,
+  ProjectResponseDto,
+  UpdateProjectStatusDto,
+} from './project.dto';
 
 @Injectable()
 export class ProjectService {
@@ -28,7 +32,7 @@ export class ProjectService {
       order: { createdAt: 'DESC' },
     });
 
-    return projects.map(project => ({
+    return projects.map((project) => ({
       id: project.id,
       serviceType: project.serviceType,
       serviceDetail: project.serviceDetail,
@@ -68,19 +72,21 @@ export class ProjectService {
     return this.findById(projectId);
   }
 
-  async getProjectStatusText(status: ProjectStatus): Promise<string> {
+  getProjectStatusText(status: ProjectStatus): string {
     const statusMap: Record<ProjectStatus, string> = {
       [ProjectStatus.QUOTE_PENDING]: 'Quote Pending',
       [ProjectStatus.AWAITING_PAYMENT]: 'Awaiting Payment',
       [ProjectStatus.PREPARATION]: 'In Progress: Preparation',
       [ProjectStatus.CAD_SCENE_SETUP]: 'CAD Scene Setup',
       [ProjectStatus.CAD_MODEL_CREATION]: 'CAD Model Creation (WIP)',
-      [ProjectStatus.CAD_MODEL_AWAITING_APPROVAL]: 'CAD Model Awaiting Approval',
+      [ProjectStatus.CAD_MODEL_AWAITING_APPROVAL]:
+        'CAD Model Awaiting Approval',
       [ProjectStatus.CAD_FINAL_OPTIMIZATION]: 'Final Optimization for Printing',
       [ProjectStatus.CAD_FINAL_FILE_READY]: 'Final File Ready',
       [ProjectStatus.CAD_FILE_PREPARATION]: 'CAD File Preparation',
       [ProjectStatus.SCENE_MATERIAL_SETUP]: 'Scene & Material Setup',
-      [ProjectStatus.DRAFT_RENDER_AWAITING_APPROVAL]: 'Draft Render Awaiting Approval',
+      [ProjectStatus.DRAFT_RENDER_AWAITING_APPROVAL]:
+        'Draft Render Awaiting Approval',
       [ProjectStatus.FINAL_HIGH_RES_RENDERING]: 'Final High-Res Rendering',
       [ProjectStatus.FINAL_VISUALS_READY]: 'Final Visuals Ready',
       [ProjectStatus.READY_FOR_DOWNLOAD]: 'Ready for Download',

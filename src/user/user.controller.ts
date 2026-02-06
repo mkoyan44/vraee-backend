@@ -1,6 +1,18 @@
-import { Controller, Get, Post, Body, ValidationPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  ValidationPipe,
+  Patch,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { UserService } from './user.service';
-import { UserRole } from './user.entity';
+import { UserRole, UserStatus } from './user.entity';
+import { AuthGuard } from '@nestjs/passport';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('user')
 export class UserController {
@@ -29,5 +41,22 @@ export class UserController {
     }
 
     return null;
+  }
+
+  @Get('list')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAllUsers() {
+    return this.userService.findAllUsers();
+  }
+
+  @Patch(':id/status')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updateUserStatus(
+    @Param('id') id: string,
+    @Body() body: { status: UserStatus },
+  ) {
+    return this.userService.updateUserStatus(parseInt(id), body.status);
   }
 }

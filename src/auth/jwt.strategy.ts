@@ -33,8 +33,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // Проверяем, не заблокирован ли аккаунт
-    if (user.isBlocked) {
+    if (user.isBlocked || user.status === 'BLOCKED') {
       throw new UnauthorizedException('Аккаунт заблокирован');
+    }
+
+    // Проверяем статус аккаунта - только ACTIVE пользователи могут получить доступ
+    if (user.status === 'PENDING') {
+      throw new UnauthorizedException(
+        'Your account is awaiting approval from the Vraee admin team.',
+      );
     }
 
     return { id: user.id, email: user.email, role: user.role };

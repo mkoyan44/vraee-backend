@@ -12,6 +12,7 @@ import {
   ProjectVolume,
   CadSoftware,
   RequiredOutput,
+  UserStatus,
 } from './user.entity';
 
 export class ProfileStep1Dto {
@@ -97,6 +98,7 @@ export class UserProfileDto {
   id: number;
   email: string;
   role: string;
+  status: UserStatus;
   isProfileComplete: boolean;
   fullName?: string;
   companyName?: string;

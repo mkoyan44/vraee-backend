@@ -10,7 +10,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { RequestWithUser } from '../types/request-with-user';
 import { ProfileService } from './profile.service';
-import { UserDTO } from '../user/user.dto';
+// import { UserDTO } from '../user/user.dto'; // Currently unused
 import {
   ProfileStep1Dto,
   ProfileStep2Dto,
